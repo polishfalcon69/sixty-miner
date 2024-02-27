@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rsquared-witness
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rsquared-witness
+  template:
+    metadata:
+      labels:
+        app: rsquared-witness
+    spec:
+      containers:
+        - name: rsquared-core
+          image: ghcr.io/r-squared-project/r-squared-core:1.0.0
+          ports:
+            - containerPort: 8090
+          env:
+            - name: WITNESS_ID
+              valueFrom:
+                secretKeyRef:
+                  name: witness
+                  key: WITNESS_ID
+            - name: WITNESS_PUB_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: witness
+                  key: WITNESS_PUB_KEY
+            - name: WITNESS_WIF_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: witness
+                  key: WITNESS_WIF_KEY
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              /usr/local/bin/witness_node --rpc-endpoint=127.0.0.1:8090 --witness-id "\"$WITNESS_ID\"" --private-key "[\"$WITNESS_PUB_KEY\", \"$WITNESS_WIF_KEY\"]"

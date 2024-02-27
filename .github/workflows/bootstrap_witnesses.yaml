@@ -1,0 +1,43 @@
+name: bootstrap_witnesses
+
+on:
+  workflow_dispatch:
+
+env:
+  KUBECONFIG: ./kubeconfig.yaml
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./witness
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup helmfile
+        uses: mamezou-tech/setup-helmfile@v1.3.0
+      - name: Install kubeconfig
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig.yaml
+      - name: Generate Witness Keys
+        id: generate_keys
+        run: |
+          SUGGESTED_BRAIN_KEY=$(docker run --rm ghcr.io/r-squared-project/r-squared-core:1.0.0 /usr/local/bin/cli_wallet --suggest-brain-key)
+
+          echo "Witness signing key:"
+          echo $SUGGESTED_BRAIN_KEY | jq -r '.pub_key'
+
+          WITNESS_ID=$(echo -n ${{ vars.WITNESS_ID }} | base64)
+          WITNESS_PUB_KEY=$(echo -n $SUGGESTED_BRAIN_KEY | jq -r '.pub_key' | base64)
+          WITNESS_WIF_KEY=$(echo -n $SUGGESTED_BRAIN_KEY | jq -r '.wif_priv_key' | base64)
+
+          echo "WITNESS_ID=$WITNESS_ID" >> $GITHUB_ENV
+          echo "WITNESS_PUB_KEY=$WITNESS_PUB_KEY" >> $GITHUB_ENV
+          echo "WITNESS_WIF_KEY=$WITNESS_WIF_KEY" >> $GITHUB_ENV
+      - name: helmfile apply
+        env:
+          WITNESS_ID: ${{ env.WITNESS_ID }}
+          WITNESS_PUB_KEY: ${{ env.WITNESS_PUB_KEY }}
+          WITNESS_WIF_KEY: ${{ env.WITNESS_WIF_KEY }}
+        run: |
+          helmfile apply
